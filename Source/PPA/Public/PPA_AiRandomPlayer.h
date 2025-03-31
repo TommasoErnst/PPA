@@ -21,10 +21,10 @@ public:
 
 	void SpawnUnit();
 	void MoveToRandomTile();
-	void MoveTowardClosestEnemy();
 	void StartAiTurnLogic();
 	void HandleNextUnit();
 	void MoveAiUnitStepByStep();
+	void MoveTowardsClosestEnemy();
 	void AttackRandomEnemy();
 
 protected:

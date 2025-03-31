@@ -52,6 +52,9 @@ protected:
 	bool IsBrawlerSpawned = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bSkipUniturn = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 UnitCounter = 0;
 
 	bool IsTileHighlighted = false;
@@ -72,7 +75,9 @@ protected:
 
 	TArray<ABaseUnit*> UnitHumanArray;
 
+
 	ABaseUnit* SelectedUnit = nullptr;
+
 
 	ABaseUnit* OldSelectedUnit = nullptr;
 
@@ -102,7 +107,11 @@ public:
 	virtual void OnWin() override;
 	virtual void OnLose() override;
 
+	UFUNCTION(BluePrintCallable)
+	bool GetbSkipUniturn();
 
+	UFUNCTION(BluePrintCallable)
+	void AsyncSetUintHasAttacked();
 
 	UFUNCTION()
 	void HandleSpawn(ATile* Tile);

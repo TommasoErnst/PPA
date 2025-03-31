@@ -69,6 +69,7 @@ void APPA_HumanPlayer::OnTurn()
 		// Inizia il turno e resetta tutte le variabili necessarie
 		GameInstance->SetTurnMessage(TEXT("Human Turn"));
 		IsMyTurn = true;
+		bSkipUniturn = false;
 		SelectedUnit = nullptr;
 		ReachableTiles.Empty(); // Resetta le tile raggiungibili
 		AttackableEnemies.Empty(); // Resetta le tile nemiche attaccabili
@@ -111,6 +112,40 @@ void APPA_HumanPlayer::OnLose()
 	IsMyTurn = false;
 	GameMode->IsGameOver = true;
 }
+
+bool APPA_HumanPlayer::GetbSkipUniturn()
+{
+	return bSkipUniturn;
+}
+
+void APPA_HumanPlayer::AsyncSetUintHasAttacked()
+{
+	SelectedUnit->SetHasUnitAttacked(true);
+
+	for (ATile* Tile3 : AttackableEnemies)
+		if (Tile3) Tile3->SetHighlightedEnemy(false);
+
+	if (IsSniperSpawned && IsBrawlerSpawned) {
+
+		bool bAllUnitsAttacked = true;
+
+		for (ABaseUnit* Unit : UnitHumanArray)
+		{
+			if (Unit && !Unit->GetHasUnitAttacked())
+			{
+				bAllUnitsAttacked = false;
+				break;
+			}
+		}
+
+		if (bAllUnitsAttacked)
+		{
+			IsMyTurn = false;
+			GameMode->TurnNextPlayer();
+		}
+	}
+}
+
 
 // Metodo per spawnare le unit
 void APPA_HumanPlayer::HandleSpawn(ATile* Tile)
@@ -163,6 +198,13 @@ void APPA_HumanPlayer::HandleUnitSelection(ABaseUnit* Unit)
 	if (HeldBy == 1) {
 
 		// Ottiene la posizione iniziale del Brawler
+		if (Unit == SelectedUnit && Unit->GetIsUnitMoved()) {
+			return;
+		}
+		if (Unit->GetIsUnitMoved()) {
+			bSkipUniturn = true;
+		}
+
 		SelectedUnit = Unit;
 
 		FVector2D StartPos = SelectedUnit->GetGridPosition();
@@ -185,7 +227,7 @@ void APPA_HumanPlayer::HandleUnitSelection(ABaseUnit* Unit)
 	if (SelectedUnit != nullptr && HeldBy == 0) {
 
 		ATile* EnemyPosition = Unit->GetCurrentTile();
-		if (AttackableEnemies.Num() > 0 && AttackableEnemies.Contains(EnemyPosition))
+		if (AttackableEnemies.Num() > 0 && AttackableEnemies.Contains(EnemyPosition) && !SelectedUnit->GetHasUnitAttacked())
 		{
 			int32 Damage = FMath::RandRange(MinDmg, MaxDmg);
 
@@ -207,6 +249,7 @@ void APPA_HumanPlayer::HandleUnitSelection(ABaseUnit* Unit)
 					int32 CounterDamage = FMath::RandRange(1, 3);  // Danno da contrattacco
 					SelectedUnit->Health -= CounterDamage;  // Applica il danno allo Sniper
 					GameInstance->HumanSniperHealth = SelectedUnit->Health;
+
 					// Log del danno da contrattacco 
 					GameMode->LogActionMessage(Unit, Unit->GetCurrentTile(), SelectedUnit->GetCurrentTile(), CounterDamage);
 				}
@@ -222,7 +265,7 @@ void APPA_HumanPlayer::HandleUnitSelection(ABaseUnit* Unit)
 				GameInstance->AiSniperHealth = Unit->Health;
 			}
 
-			// Se l'unità nemica muore si rimuove
+			
 			if (Unit->Health <= 0) {
 				GameMode->RemoveUnit(Unit);
 			}
@@ -262,6 +305,9 @@ void APPA_HumanPlayer::HandleUnitSelection(ABaseUnit* Unit)
 				GameMode->TurnNextPlayer();
 			}
 		}
+		else {
+			return;
+		}
 	}
 }
 
@@ -276,6 +322,7 @@ void APPA_HumanPlayer::OnClick()
 
 		if (Hit.bBlockingHit) 
 		{
+			bSkipUniturn = false;
 			AActor* HitActor = Cast<AActor>(Hit.GetActor());
 			if (HitActor)
 			{
@@ -323,6 +370,7 @@ void APPA_HumanPlayer::OnClick()
 								GameMode->LogActionMessage(SelectedUnit, SelectedUnit->GetCurrentTile(), Tile);
 								MoveUnitToTile(Tile);
 								 
+								bSkipUniturn = true;
 
 
 								int32 AttackRange = SelectedUnit->AttackRange;
@@ -333,6 +381,7 @@ void APPA_HumanPlayer::OnClick()
 								if (AttackableEnemies.Num() <= 0) {
 									SelectedUnit->SetHasUnitAttacked(true);
 									bool bAllHumansAttacked = true;
+									bSkipUniturn = false;
 
 									// Controllo se le azioni delle mie unit sono esaurite
 									for (ABaseUnit* Unit : UnitHumanArray)

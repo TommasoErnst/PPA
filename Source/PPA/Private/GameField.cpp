@@ -391,6 +391,94 @@ TArray<ATile*> AGameField::FindPath(FVector2D Start, FVector2D End)
 	if (Start == End)
 		return Path;
 
+	// Mappa per ricostruire il percorso
+	TMap<FVector2D, FVector2D> CameFrom;
+	TSet<FVector2D> Visited;
+	TQueue<FVector2D> Queue;
+
+	// Se la destinazione è occupata, trova la cella adiacente più vicina nelle 4 direzioni cardinali
+	ATile* EndTile = GetTileAtPosition(End);
+	if (EndTile && EndTile->GetTileStatus() != ETileStatus::EMPTY)
+	{
+		TArray<FVector2D> CardinalDirections = { FVector2D(0,1), FVector2D(0,-1), FVector2D(1,0), FVector2D(-1,0) };
+		FVector2D BestTarget = End;
+		float MinDistance = FLT_MAX;
+
+		for (FVector2D Direction : CardinalDirections)
+		{
+			FVector2D Candidate = End + Direction;
+			ATile* CandidateTile = GetTileAtPosition(Candidate);
+			if (CandidateTile && CandidateTile->GetTileStatus() == ETileStatus::EMPTY)
+			{
+				float Distance = (Start - Candidate).Size();
+				if (Distance < MinDistance)
+				{
+					MinDistance = Distance;
+					BestTarget = Candidate;
+				}
+			}
+		}
+
+		End = BestTarget; // Imposta la nuova destinazione
+	}
+
+	// Avvia la BFS
+	Queue.Enqueue(Start);
+	Visited.Add(Start);
+	CameFrom.Add(Start, Start);
+
+	while (!Queue.IsEmpty())
+	{
+		FVector2D Current;
+		Queue.Dequeue(Current);
+
+		if (Current == End)
+			break;
+
+		TArray<FVector2D> Neighbors = GetNeighbors(Current);
+
+		for (FVector2D Neighbor : Neighbors)
+		{
+			if (!Visited.Contains(Neighbor))
+			{
+				ATile* NeighborTile = GetTileAtPosition(Neighbor);
+				if (NeighborTile && NeighborTile->GetTileStatus() == ETileStatus::EMPTY)
+				{
+					Queue.Enqueue(Neighbor);
+					Visited.Add(Neighbor);
+					CameFrom.Add(Neighbor, Current);
+				}
+			}
+		}
+	}
+
+	// Se non è stato trovato un percorso, restituisce un array vuoto
+	if (!CameFrom.Contains(End))
+		return Path;
+
+	// Ricostruisce il percorso
+	FVector2D Current = End;
+	while (Current != Start)
+	{
+		ATile* Tile = GetTileAtPosition(Current);
+		if (Tile)
+			Path.Insert(Tile, 0);
+		Current = CameFrom[Current];
+	}
+
+	return Path;
+}
+
+
+/*
+// Metodo per trovare il percorso minimo
+TArray<ATile*> AGameField::FindPath(FVector2D Start, FVector2D End)
+{
+	TArray<ATile*> Path;
+
+	if (Start == End)
+		return Path;
+
 	// MAppa per ricostruire il percorso
 	TMap<FVector2D, FVector2D> CameFrom; 
 	TSet<FVector2D> Visited;
@@ -441,7 +529,7 @@ TArray<ATile*> AGameField::FindPath(FVector2D Start, FVector2D End)
 
 	return Path;
 }
-
+*/
 
 
 // NON IMPLEMENTATO ho provato a svilupparlo ma non ho avuto il tempo, l'ai è random

@@ -27,6 +27,7 @@ void APPA_AiRandomPlayer::OnTurn()
 		if (Unit)
 		{
 			Unit->SetHasUnitAttacked(false);
+			Unit->SetIsUnitMoved(false);
 		}
 	}
 	GetWorld()->GetTimerManager().SetTimer(TimerHandle, this, &APPA_AiRandomPlayer::StartAiTurnLogic, 3.f, false);
@@ -127,6 +128,8 @@ void APPA_AiRandomPlayer::StartAiTurnLogic()
 	HandleNextUnit();
 }
 
+
+
 // Logica ai principle
 void APPA_AiRandomPlayer::HandleNextUnit()
 {
@@ -156,91 +159,110 @@ void APPA_AiRandomPlayer::HandleNextUnit()
 	}
 
 	// si muove verso una random tile e prov ad attaccare
-	MoveToRandomTile();
-	// Messaggio per la scrollbar
+	
+	MoveTowardsClosestEnemy();
+
+	// Messaggio per la scrollbar se l'unità si è mossa
+
+	if(SelectedUnit->GetIsUnitMoved())
 	GameMode->LogActionMessage(SelectedUnit, SelectedUnit->GetCurrentTile(), FinalPos);
 }
 
 
-//Metodo per muoversi ad una random tile
-void APPA_AiRandomPlayer::MoveToRandomTile()
+
+
+
+// Algoritmo per muoversi verso il nemico più vicino
+void APPA_AiRandomPlayer::MoveTowardsClosestEnemy()
 {
-	if (!SelectedUnit) return;
+	if (!SelectedUnit || HumanUnitsArray.Num() == 0)
+	{
+		return;
+	}
 
 	FVector2D StartPos = SelectedUnit->GetGridPosition();
 	int32 MaxDistance = SelectedUnit->MaxMovement;
-	ATile* StartTile = GameField->GetTileAtPosition(StartPos);
-	StartTile->SetTileStatus(-1, ETileStatus::EMPTY);
-
 	ReachableTiles = GameField->GetReachableTiles(StartPos, MaxDistance);
-
-	if (ReachableTiles.Num() == 0) {
-		//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan, FString::Printf(TEXT("NESSUNA TILE RAGGIUNGIBILE")));
-	}
-
-	for (ATile* tile : ReachableTiles)
-	{
-		if (tile) tile->SetHighlighted(true);
-	}
-
-	ATile* TargetTile = ReachableTiles[FMath::RandRange(0, ReachableTiles.Num() - 1)];
-	FinalPos = TargetTile;
-	SelectedPath = GameField->FindPath(StartPos, TargetTile->GetGridPosition());
-
-	if (SelectedPath.Num() == 0) return;
-
-	CurrentStepIndex = 0;
-	GetWorld()->GetTimerManager().SetTimer(MovementTimerHandle, this, &APPA_AiRandomPlayer::MoveAiUnitStepByStep, 0.8f, true);
-}
-
-
-//  MWTODO NON IMPLEMENTATO A* PER MANCANZA DI TEMPO
-void APPA_AiRandomPlayer::MoveTowardClosestEnemy()
-{
-	if (!SelectedUnit) return;
-
-	FVector2D StartPos = SelectedUnit->GetGridPosition();
-	int32 MaxDistance = SelectedUnit->MaxMovement;
 	ATile* StartTile = GameField->GetTileAtPosition(StartPos);
-	if (!StartTile) return;
+	
 
-	StartTile->SetTileStatus(-1, ETileStatus::EMPTY);
-
-
-	TArray<ABaseUnit*> HumanUnits = GameMode->GetHumanUnits(); 
-	if (HumanUnits.Num() == 0) return;
-
-
-	ABaseUnit* ClosestUnit = nullptr;
-	float MinDist = TNumericLimits<float>::Max();
-	for (ABaseUnit* Unit : HumanUnits)
+	for (ATile* Tile : ReachableTiles)
 	{
-		if (!Unit) continue;
+		if (Tile) Tile->SetHighlighted(true);
+	}
 
-		float Dist = FVector2D::Distance(StartPos, Unit->GetGridPosition());
-		if (Dist < MinDist)
+	// Trova il nemico più vicino
+	ABaseUnit* ClosestEnemy = nullptr;
+	float MinDistance = FLT_MAX;
+
+	for (ABaseUnit* EnemyUnit : HumanUnitsArray)
+	{
+		if (EnemyUnit)
 		{
-			MinDist = Dist;
-			ClosestUnit = Unit;
+			float Distance = (StartPos - EnemyUnit->GetGridPosition()).Size();
+	
+
+			if (Distance < MinDistance)
+			{
+				MinDistance = Distance;
+				ClosestEnemy = EnemyUnit;
+			}
 		}
 	}
 
-	if (!ClosestUnit) return;
-
-
-	TArray<ATile*> FullPath = GameField->FindPathAStar(StartPos, ClosestUnit->GetGridPosition());
-	if (FullPath.Num() == 0) return;
-
-	
-	if (FullPath.Num() > MaxDistance + 1)
+	if (!ClosestEnemy)
 	{
-		FullPath.SetNum(MaxDistance + 1);
+	
+		return;
 	}
 
-	SelectedPath = FullPath;
-	CurrentStepIndex = 0;
-	GetWorld()->GetTimerManager().SetTimer(MovementTimerHandle, this, &APPA_AiRandomPlayer::MoveAiUnitStepByStep, 0.8f, true);
+	FVector2D TargetPos = ClosestEnemy->GetGridPosition();
+	FinalPos = ClosestEnemy->GetCurrentTile();
+	
+	// Se già in range attacca senza muoversi
+	if (MinDistance <= SelectedUnit->AttackRange)
+	{
+	
+		AttackRandomEnemy();
+
+		SelectedUnit->SetHasUnitAttacked(true);
+
+		// Dopo il movimento (e possibile attacco), passa alla prossima unità
+		FTimerHandle NextUnitTimer;
+		GetWorld()->GetTimerManager().SetTimer(NextUnitTimer, this, &APPA_AiRandomPlayer::HandleNextUnit, 2.0f, false);
+		return;
+	}
+
+	// Se non è possibile attaccare parte la logica per muoversi
+	else{
+
+		SelectedPath = GameField->FindPath(StartPos, TargetPos);
+
+
+		if (SelectedPath.Num() > MaxDistance)
+		{
+			SelectedPath.SetNum(MaxDistance);
+		}
+
+		if (SelectedPath.Num() == 0)
+		{
+			return;
+		}
+
+
+		StartTile->SetTileStatus(-1, ETileStatus::EMPTY);
+		CurrentStepIndex = 0;
+		SelectedUnit->SetIsUnitMoved(true);
+		GetWorld()->GetTimerManager().SetTimer(MovementTimerHandle, this, &APPA_AiRandomPlayer::MoveAiUnitStepByStep, 0.8f, true);
+		
+	}
+
 }
+
+
+
+
+
 
 // Muove l'unit per ogni casella attraverso il path minimo
 void APPA_AiRandomPlayer::MoveAiUnitStepByStep()
@@ -254,6 +276,7 @@ void APPA_AiRandomPlayer::MoveAiUnitStepByStep()
 			ATile* FinalTile = SelectedPath.Last();
 			FinalTile->SetTileStatus(PlayerNumber, ETileStatus::OCCUPIED_BY_AI);
 			SelectedUnit->SetCurrentTile(FinalTile);
+
 
 			// Tenta attacco dopo il movimento
 			FVector2D NewPos = FinalTile->GetGridPosition();
@@ -271,7 +294,7 @@ void APPA_AiRandomPlayer::MoveAiUnitStepByStep()
 
 		// Dopo il movimento (e possibile attacco), passa alla prossima unità
 		FTimerHandle NextUnitTimer;
-		GetWorld()->GetTimerManager().SetTimer(NextUnitTimer, this, &APPA_AiRandomPlayer::HandleNextUnit, 0.8f, false);
+		GetWorld()->GetTimerManager().SetTimer(NextUnitTimer, this, &APPA_AiRandomPlayer::HandleNextUnit, 2.0f, false);
 		return;
 	}
 
@@ -284,6 +307,9 @@ void APPA_AiRandomPlayer::MoveAiUnitStepByStep()
 
 	CurrentStepIndex++;
 }
+
+
+
 
 
 // Attacca un nemico random tra quelli attaccabili
@@ -323,11 +349,13 @@ void APPA_AiRandomPlayer::AttackRandomEnemy()
 		// Attacca il nemico
 		if (TargetEnemy)
 		{
-			// Calcola danno: qui puoi definire la logica per il danno dell'unità
+			// Calcola danno
 			int32 Damage = FMath::RandRange(SelectedUnit->MinDamage, SelectedUnit->MaxDamage);
 
-			// Riduci i punti vita del nemico
+			// Riduce i punti vita del nemico
 			TargetEnemy->Health = TargetEnemy->Health - Damage;
+
+			GameMode->LogActionMessage(SelectedUnit, TargetEnemy->GetCurrentTile(), SelectedUnit->GetCurrentTile(), Damage);
 
 			// Se l'unità attaccata è uno Sniper o un Brawler a distanza 1, contrattacca
 			if (TargetEnemy->IsA(ASniper::StaticClass()) ||
@@ -338,7 +366,12 @@ void APPA_AiRandomPlayer::AttackRandomEnemy()
 				// Danno da contrattacco per lo Sniper
 				int32 CounterDamage = FMath::RandRange(1, 3);  // Danno da contrattacco
 				SelectedUnit->Health -= CounterDamage;  // Applica il danno allo Sniper
-				GameInstance->AiSniperHealth = SelectedUnit->Health;
+				//GameInstance->AiSniperHealth = GameInstance->AiSniperHealth - CounterDamage;
+
+				//Se l'unit muore dal contrattacco si rimuove
+				if (SelectedUnit->Health <= 0) {
+					GameMode->RemoveUnit(SelectedUnit);
+				}
 
 				// Log del danno da contrattacco
 				GameMode->LogActionMessage(TargetEnemy, SelectedUnit->GetCurrentTile(), TargetEnemy->GetCurrentTile(), CounterDamage);
@@ -353,6 +386,7 @@ void APPA_AiRandomPlayer::AttackRandomEnemy()
 			{
 				GameInstance->HumanSniperHealth = TargetEnemy->Health;
 			}
+			
 
 			// Se l'unità nemica muore si rimuove
 			if (TargetEnemy->Health <= 0) {
@@ -369,3 +403,34 @@ void APPA_AiRandomPlayer::AttackRandomEnemy()
 
 
 
+
+//Metodo per muoversi ad una random tile NON PRESENTE NELLA LOGICA, UTILIZZATTO PER LO SVILUPPO INIZIALE
+void APPA_AiRandomPlayer::MoveToRandomTile()
+{
+	if (!SelectedUnit) return;
+
+	FVector2D StartPos = SelectedUnit->GetGridPosition();
+	int32 MaxDistance = SelectedUnit->MaxMovement;
+	ATile* StartTile = GameField->GetTileAtPosition(StartPos);
+	StartTile->SetTileStatus(-1, ETileStatus::EMPTY);
+
+	ReachableTiles = GameField->GetReachableTiles(StartPos, MaxDistance);
+
+	if (ReachableTiles.Num() == 0) {
+		//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan, FString::Printf(TEXT("NESSUNA TILE RAGGIUNGIBILE")));
+	}
+
+	for (ATile* tile : ReachableTiles)
+	{
+		if (tile) tile->SetHighlighted(true);
+	}
+
+	ATile* TargetTile = ReachableTiles[FMath::RandRange(0, ReachableTiles.Num() - 1)];
+	FinalPos = TargetTile;
+	SelectedPath = GameField->FindPath(StartPos, TargetTile->GetGridPosition());
+
+	if (SelectedPath.Num() == 0) return;
+
+	CurrentStepIndex = 0;
+	GetWorld()->GetTimerManager().SetTimer(MovementTimerHandle, this, &APPA_AiRandomPlayer::MoveAiUnitStepByStep, 0.8f, true);
+}

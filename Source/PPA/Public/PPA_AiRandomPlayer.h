@@ -31,6 +31,9 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+
+	bool CanUnitAttack = false;
+
 	// Riferimenti ad oggetti
 	UPROPERTY()
 	class UPPA_GameInstance* GameInstance;
@@ -78,6 +81,7 @@ protected:
 	// Timers
 	FTimerHandle AITimerHandle;
 	FTimerHandle MovementTimerHandle;
+	FTimerHandle AiActionTimerHandle;
 
 
 public:	

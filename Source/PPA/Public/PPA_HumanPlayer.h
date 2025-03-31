@@ -51,8 +51,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool IsBrawlerSpawned = false;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 UnitCounter = 0;
 
 	bool IsTileHighlighted = false;
+
 
 	//Previene la possibilità di cliccare un'altra unit/tile durante il movimento
 	int32 AttackCounter = 0;
@@ -116,5 +119,11 @@ public:
 	// called on left mouse click (binding)
 	UFUNCTION()
 	void OnClick();
+
+	UFUNCTION(BluePrintCallable)
+	int32 GetUnitType();
+
+	UFUNCTION(BluePrintCallable)
+	int32 GetUnitCounter ();
 
 };

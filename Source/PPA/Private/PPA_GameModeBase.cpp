@@ -102,7 +102,7 @@ void APPA_GameModeBase::BeginPlay()
 	auto* AI = GetWorld()->SpawnActor<APPA_AiRandomPlayer>(FVector(), FRotator());
 	Players.Add(AI);
 
-	this->ChoosePlayerAndStartGame();
+	
 
 }
 

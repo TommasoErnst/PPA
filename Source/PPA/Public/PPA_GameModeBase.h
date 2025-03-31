@@ -39,7 +39,9 @@ public:
 	void LogActionMessage(ABaseUnit* Unit, ATile* FromTile, ATile* ToTile = nullptr, int32 Damage = -1);
 
 	// Mettodi per la gestione del game
+	UFUNCTION(BluePrintCallable)
 	void ChoosePlayerAndStartGame();
+
 	void TurnNextPlayer();
 	int32 GetNextPlayer(int32 Player);
 	void RemoveUnit(ABaseUnit* UnitToRemove);

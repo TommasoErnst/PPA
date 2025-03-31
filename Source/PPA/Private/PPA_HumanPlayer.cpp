@@ -24,6 +24,16 @@ APPA_HumanPlayer::APPA_HumanPlayer()
 
 }
 
+int32 APPA_HumanPlayer::GetUnitType()
+{
+	return UnitType;
+}
+
+int32 APPA_HumanPlayer::GetUnitCounter()
+{
+	return UnitCounter;
+}
+
 // Called when the game starts or when spawned
 void APPA_HumanPlayer::BeginPlay()
 {
@@ -38,6 +48,12 @@ void APPA_HumanPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (GameMode && GameMode->GetHumanUnits().Num() <= 0 && IsSniperSpawned && IsBrawlerSpawned) {
+		OnLose();
+	}
+	if (GameMode->GetAiUnits().Num() <= 0 && IsSniperSpawned && IsBrawlerSpawned) {
+		OnWin();
+	}
 }
 
 // Called to bind functionality to input
@@ -78,6 +94,7 @@ void APPA_HumanPlayer::OnTurn()
 		if (GameMode && GameMode->GetHumanUnits().Num() <= 0 && IsSniperSpawned && IsBrawlerSpawned) {
 			OnLose();
 		}
+
 }
 
 void APPA_HumanPlayer::OnWin()
@@ -131,6 +148,7 @@ void APPA_HumanPlayer::HandleSpawn(ATile* Tile)
 
 		// Resetta UnitType per evitare che l'unità venga spawnata più volte
 		UnitType = -1; // Imposta a -1 per segnalare che il tipo di unità è stato usato
+		UnitCounter ++;
 
 		GameMode->TurnNextPlayer();
 		return;
@@ -255,7 +273,6 @@ void APPA_HumanPlayer::OnClick()
 		
 		FHitResult Hit;
 		GetWorld()->GetFirstPlayerController()->GetHitResultUnderCursor(ECollisionChannel::ECC_Pawn, true, Hit);
-		
 
 		if (Hit.bBlockingHit) 
 		{
@@ -274,6 +291,9 @@ void APPA_HumanPlayer::OnClick()
 				// Units spawnate adesso procedo con la logica di selezione della unit
 				if (IsSniperSpawned && IsBrawlerSpawned)
 				{
+					if (GameMode->GetAiUnits().Num() <= 0) {
+						OnWin();
+					}
 					if (ABaseUnit* Unit = Cast<ABaseUnit>(HitActor))
 					{
 						HeldBy = Unit->GetHeldByPlayer();
@@ -353,6 +373,8 @@ void APPA_HumanPlayer::OnClick()
 		}
 	}
 }
+
+
 
 
 // logica per muovere la unit step by step

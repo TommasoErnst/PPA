@@ -366,7 +366,7 @@ void APPA_AiRandomPlayer::AttackRandomEnemy()
 				// Danno da contrattacco per lo Sniper
 				int32 CounterDamage = FMath::RandRange(1, 3);  // Danno da contrattacco
 				SelectedUnit->Health -= CounterDamage;  // Applica il danno allo Sniper
-				//GameInstance->AiSniperHealth = GameInstance->AiSniperHealth - CounterDamage;
+				if (SelectedUnit->IsA(ASniper::StaticClass())) GameInstance->AiSniperHealth = SelectedUnit->Health;
 
 				//Se l'unit muore dal contrattacco si rimuove
 				if (SelectedUnit->Health <= 0) {
@@ -387,6 +387,7 @@ void APPA_AiRandomPlayer::AttackRandomEnemy()
 				GameInstance->HumanSniperHealth = TargetEnemy->Health;
 			}
 			
+		
 
 			// Se l'unità nemica muore si rimuove
 			if (TargetEnemy->Health <= 0) {
